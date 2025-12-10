@@ -1,0 +1,26 @@
+{
+  "name": "shiny-png",
+  "version": "0.1.0",
+  "description": "WebAssembly library for adding ICC profiles to PNG images",
+  "type": "module",
+  "main": "shiny_png.js",
+  "types": "shiny_png.d.ts",
+  "files": [
+    "pkg/shiny_png.js",
+    "pkg/shiny_png_bg.wasm",
+    "pkg/shiny_png_bg.wasm.d.ts",
+    "pkg/shiny_png.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "cargo build --lib --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/shiny_png.wasm --out-dir pkg --target bundler"
+  },
+  "keywords": [
+    "png",
+    "icc",
+    "profile",
+    "color",
+    "wasm"
+  ],
+  "author": "Your Name",
+}

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Make Shiny PNG</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playwrite+NO:wght@100..400&family=Source+Sans+3:ital,wght@0,200..900;1,200..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: "Playwrite NO", cursive, "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-optical-sizing: auto;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+      h1 {
+        color: #333;
+        margin-top: 0;
+        text-align: center;
+      }
+      .section {
+        margin-bottom: 30px;
+      }
+      .file-input-wrapper {
+        position: relative;
+        display: block;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      .file-input-label {
+        display: block;
+        padding: 20px;
+        background: #667eea;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        transition: background 0.3s;
+        font-weight: 500;
+      }
+      .file-input-label:hover {
+        background: #764ba2;
+      }
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #764ba2;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .preview {
+        display: block;
+        max-width: 100%;
+        margin: 20px 0;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .preview img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .info-panel {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 15px 0;
+        font-size: 14px;
+        color: #666;
+      }
+      .error {
+        color: #d32f2f;
+        background: #ffebee;
+        padding: 12px;
+        border-radius: 4px;
+      }
+      .success {
+        color: #388e3c;
+        background: #e8f5e9;
+        padding: 12px;
+        border-radius: 4px;
+      }
+      .result-section {
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 2px solid #eee;
+      }
+      .download-btn {
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+      }
+      .hidden-link {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>✨ Shiny PNG</h1>
+      <p style="text-align: center; color: #666">
+        Drop an image, get shiny magic! ✨
+      </p>
+
+      <!-- Upload Image -->
+      <div class="section">
+        <div class="file-input-wrapper">
+          <input type="file" id="imageInput" accept="image/png" />
+          <label for="imageInput" class="file-input-label">
+            Pick a PNG
+          </label>
+        </div>
+        <div id="uploadInfo" class="info-panel" style="display: none"></div>
+      </div>
+
+      <!-- Result Image -->
+      <div
+        class="section result-section"
+        id="resultSection"
+        style="display: none"
+      >
+        <h2 style="margin-top: 0">✨ Your Shiny PNG!</h2>
+        <div id="resultPreview"></div>
+        <button id="downloadBtn" class="download-btn">Download ✨</button>
+        <div id="resultInfo" class="info-panel" style="display: none"></div>
+      </div>
+
+      <div id="message"></div>
+    </div>
+
+    <!-- Hidden download link -->
+    <a id="downloadLink" class="hidden-link"></a>
+
+    <script type="module">
+      import init, { apply_default_icc_profile } from "./pkg/shiny_png.js";
+
+      let imageData = null;
+      let resultBlob = null;
+      let wasmReady = false;
+
+      // Initialize WASM
+      (async () => {
+        try {
+          await init();
+          wasmReady = true;
+          console.log("WASM module loaded successfully!");
+        } catch (err) {
+          console.error("Failed to initialize WASM:", err);
+        }
+      })();
+
+      const imageInput = document.getElementById("imageInput");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const downloadLink = document.getElementById("downloadLink");
+      const uploadInfo = document.getElementById("uploadInfo");
+      const resultSection = document.getElementById("resultSection");
+      const resultPreview = document.getElementById("resultPreview");
+      const resultInfo = document.getElementById("resultInfo");
+
+      imageInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          imageData = new Uint8Array(event.target.result);
+
+          // Show upload info
+          uploadInfo.textContent = `Got it! ${(
+            imageData.length / 1024
+          ).toFixed(2)} KB`;
+          uploadInfo.className = "info-panel success";
+          uploadInfo.style.display = "block";
+
+          // Wait for WASM to be ready if not already
+          if (!wasmReady) {
+            uploadInfo.textContent = "⏳ Making it shiny..."
+            uploadInfo.className = "info-panel";
+            // Poll until WASM is ready
+            let attempts = 0;
+            const checkWasm = setInterval(() => {
+              attempts++;
+              if (wasmReady) {
+                clearInterval(checkWasm);
+                applyProfile();
+              } else if (attempts > 50) {
+                clearInterval(checkWasm);
+                resultInfo.textContent = "Error: WASM module failed to load";
+                resultInfo.className = "info-panel error";
+                resultInfo.style.display = "block";
+                resultSection.style.display = "block";
+              }
+            }, 100);
+            return;
+          }
+
+          // Apply default ICC profile immediately
+          applyProfile();
+        };
+        reader.readAsArrayBuffer(file);
+      });
+
+      async function applyProfile() {
+        if (!imageData || !wasmReady) {
+          console.error("Missing imageData or WASM not ready");
+          return;
+        }
+
+        try {
+          console.log("Applying default ICC profile...");
+          const result = apply_default_icc_profile(imageData);
+          resultBlob = new Blob([result], { type: "image/png" });
+          const url = URL.createObjectURL(resultBlob);
+
+          // Show result
+          resultPreview.innerHTML = `<img src="${url}" alt="Result" class="preview">`;
+          resultInfo.textContent = `Shiny! ✨ ${(
+            result.length / 1024
+          ).toFixed(2)} KB`;
+          resultInfo.className = "info-panel success";
+          resultInfo.style.display = "block";
+          resultSection.style.display = "block";
+          console.log("Profile applied successfully");
+        } catch (error) {
+          console.error("Error:", error);
+          resultInfo.textContent = `Error: ${error.message}`;
+          resultInfo.className = "info-panel error";
+          resultInfo.style.display = "block";
+          resultSection.style.display = "block";
+        }
+      }
+
+      downloadBtn.addEventListener("click", () => {
+        if (!resultBlob) return;
+
+        const url = URL.createObjectURL(resultBlob);
+        downloadLink.href = url;
+        downloadLink.download = "result.png";
+        downloadLink.click();
+      });
+    </script>
+  </body>
+</html>
